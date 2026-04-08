@@ -1,0 +1,15 @@
+QA 報告
+==================================================
+原始總筆數: 1,371,980
+清洗後剩餘筆數: 1,371,980
+移除筆數: 0
+
+各欄位 Null 值比例:
+--------------------------------------------------
+customer_id: Null=0, Ratio=0.0000%
+FN: Null=895,050, Ratio=65.2378%
+Active: Null=907,576, Ratio=66.1508%
+club_member_status: Null=6,062, Ratio=0.4418%
+fashion_news_frequency: Null=16,011, Ratio=1.1670%
+age: Null=15,861, Ratio=1.1561%
+postal_code: Null=0, Ratio=0.0000%

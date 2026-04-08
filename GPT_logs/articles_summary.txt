@@ -1,0 +1,33 @@
+QA 報告
+==================================================
+原始總筆數: 105,542
+清洗後剩餘筆數: 105,542
+移除筆數: 0
+
+各欄位 Null 值比例:
+--------------------------------------------------
+article_id: Null=0, Ratio=0.0000%
+product_code: Null=0, Ratio=0.0000%
+prod_name: Null=0, Ratio=0.0000%
+product_type_no: Null=0, Ratio=0.0000%
+product_type_name: Null=0, Ratio=0.0000%
+product_group_name: Null=0, Ratio=0.0000%
+graphical_appearance_no: Null=0, Ratio=0.0000%
+graphical_appearance_name: Null=0, Ratio=0.0000%
+colour_group_code: Null=0, Ratio=0.0000%
+colour_group_name: Null=0, Ratio=0.0000%
+perceived_colour_value_id: Null=0, Ratio=0.0000%
+perceived_colour_value_name: Null=0, Ratio=0.0000%
+perceived_colour_master_id: Null=0, Ratio=0.0000%
+perceived_colour_master_name: Null=0, Ratio=0.0000%
+department_no: Null=0, Ratio=0.0000%
+department_name: Null=0, Ratio=0.0000%
+index_code: Null=0, Ratio=0.0000%
+index_name: Null=0, Ratio=0.0000%
+index_group_no: Null=0, Ratio=0.0000%
+index_group_name: Null=0, Ratio=0.0000%
+section_no: Null=0, Ratio=0.0000%
+section_name: Null=0, Ratio=0.0000%
+garment_group_no: Null=0, Ratio=0.0000%
+garment_group_name: Null=0, Ratio=0.0000%
+detail_desc: Null=416, Ratio=0.3942%

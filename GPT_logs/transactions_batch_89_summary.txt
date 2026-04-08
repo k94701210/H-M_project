@@ -1,0 +1,15 @@
+QA 報告
+==================================================
+原始總筆數: 200,000
+清洗後剩餘筆數: 200,000
+移除筆數: 0
+
+各欄位 Null 值比例:
+--------------------------------------------------
+t_dat: Null=0, Ratio=0.0000%
+customer_id: Null=0, Ratio=0.0000%
+article_id: Null=0, Ratio=0.0000%
+price: Null=0, Ratio=0.0000%
+sales_channel_id: Null=0, Ratio=0.0000%
+batch_id: Null=0, Ratio=0.0000%
+row_num_in_batch: Null=0, Ratio=0.0000%
