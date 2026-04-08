@@ -7,7 +7,7 @@ GO
 下面是完整建議版
 ====================================================*/
 
-IF OBJECT_ID('dbo.stg_articles', 'U') IS NOT NULL DROP TABLE dbo.stg_articles;
+IIF OBJECT_ID('dbo.stg_articles', 'U') IS NOT NULL DROP TABLE dbo.stg_articles;
 CREATE TABLE dbo.stg_articles (
     article_id                      VARCHAR(20),
     product_code                    VARCHAR(20),
@@ -135,63 +135,107 @@ GO
 3) STAGING -> DIM / FACT
 ====================================================*/
 
+/*==============================================================
+  dim_articles
+  每個 article_id 只保留一筆
+==============================================================*/
 TRUNCATE TABLE dbo.dim_articles;
 
-INSERT INTO dbo.dim_articles (
-    article_id, product_code, prod_name, product_type_no, product_type_name,
-    product_group_name, graphical_appearance_no, graphical_appearance_name,
-    colour_group_code, colour_group_name, perceived_colour_value_id,
-    perceived_colour_value_name, perceived_colour_master_id, perceived_colour_master_name,
-    department_no, department_name, index_code, index_name, index_group_no,
-    index_group_name, section_no, section_name, garment_group_no,
-    garment_group_name, detail_desc
+WITH article_dedup AS (
+    SELECT
+        article_id,
+        product_code,
+        prod_name,
+        product_type_no,
+        product_type_name,
+        product_group_name,
+        graphical_appearance_no,
+        graphical_appearance_name,
+        colour_group_code,
+        colour_group_name,
+        perceived_colour_value_id,
+        perceived_colour_value_name,
+        perceived_colour_master_id,
+        perceived_colour_master_name,
+        department_no,
+        department_name,
+        index_code,
+        index_name,
+        index_group_no,
+        index_group_name,
+        section_no,
+        section_name,
+        garment_group_no,
+        garment_group_name,
+        detail_desc,
+        ROW_NUMBER() OVER (
+            PARTITION BY article_id
+            ORDER BY article_id
+        ) AS rn
+    FROM dbo.stg_articles
+    WHERE article_id IS NOT NULL
 )
-SELECT DISTINCT
+INSERT INTO dbo.dim_articles (
     article_id,
     product_code,
     prod_name,
-    TRY_CAST(product_type_no AS INT),
+    product_type_no,
     product_type_name,
     product_group_name,
-    TRY_CAST(graphical_appearance_no AS INT),
+    graphical_appearance_no,
     graphical_appearance_name,
-    TRY_CAST(colour_group_code AS INT),
+    colour_group_code,
     colour_group_name,
-    TRY_CAST(perceived_colour_value_id AS INT),
+    perceived_colour_value_id,
     perceived_colour_value_name,
-    TRY_CAST(perceived_colour_master_id AS INT),
+    perceived_colour_master_id,
     perceived_colour_master_name,
-    TRY_CAST(department_no AS INT),
+    department_no,
     department_name,
     index_code,
     index_name,
-    TRY_CAST(index_group_no AS INT),
+    index_group_no,
     index_group_name,
-    TRY_CAST(section_no AS INT),
+    section_no,
     section_name,
-    TRY_CAST(garment_group_no AS INT),
+    garment_group_no,
     garment_group_name,
     detail_desc
-FROM dbo.stg_articles;
-GO
-
-TRUNCATE TABLE dbo.dim_customers;
-
-INSERT INTO dbo.dim_customers (
-    customer_id, FN, Active, club_member_status,
-    fashion_news_frequency, age, postal_code
 )
-SELECT DISTINCT
-    customer_id,
-    FN,
-    Active,
-    club_member_status,
-    fashion_news_frequency,
-    age,
-    postal_code
-FROM dbo.stg_customers;
+SELECT
+    article_id,
+    product_code,
+    prod_name,
+    TRY_CAST(NULLIF(product_type_no, '') AS INT) AS product_type_no,
+    product_type_name,
+    product_group_name,
+    TRY_CAST(NULLIF(graphical_appearance_no, '') AS INT) AS graphical_appearance_no,
+    graphical_appearance_name,
+    TRY_CAST(NULLIF(colour_group_code, '') AS INT) AS colour_group_code,
+    colour_group_name,
+    TRY_CAST(NULLIF(perceived_colour_value_id, '') AS INT) AS perceived_colour_value_id,
+    perceived_colour_value_name,
+    TRY_CAST(NULLIF(perceived_colour_master_id, '') AS INT) AS perceived_colour_master_id,
+    perceived_colour_master_name,
+    TRY_CAST(NULLIF(department_no, '') AS INT) AS department_no,
+    department_name,
+    index_code,
+    index_name,
+    TRY_CAST(NULLIF(index_group_no, '') AS INT) AS index_group_no,
+    index_group_name,
+    TRY_CAST(NULLIF(section_no, '') AS INT) AS section_no,
+    section_name,
+    TRY_CAST(NULLIF(garment_group_no, '') AS INT) AS garment_group_no,
+    garment_group_name,
+    detail_desc
+FROM article_dedup
+WHERE rn = 1;
 GO
 
+
+/*==============================================================
+  fact_transactions
+==============================================================*/
 TRUNCATE TABLE dbo.fact_transactions;
 
 INSERT INTO dbo.fact_transactions (
@@ -206,19 +250,64 @@ INSERT INTO dbo.fact_transactions (
     transaction_ym
 )
 SELECT
-    t_dat AS transaction_date,
+    TRY_CAST(t_dat AS DATE) AS transaction_date,
     customer_id,
     article_id,
-    price,
-    CAST(price * 1000.0 AS DECIMAL(18,2)) AS price_amount,
-    sales_channel_id,
-    YEAR(t_dat) AS transaction_year,
-    MONTH(t_dat) AS transaction_month,
-    CONVERT(CHAR(7), t_dat, 120) AS transaction_ym
-FROM dbo.stg_transactions;
+    TRY_CAST(price AS DECIMAL(18,6)) AS price,
+    TRY_CAST(price AS DECIMAL(18,6)) * 1000.0 AS price_amount,
+    TRY_CAST(NULLIF(sales_channel_id, '') AS INT) AS sales_channel_id,
+    YEAR(TRY_CAST(t_dat AS DATE)) AS transaction_year,
+    MONTH(TRY_CAST(t_dat AS DATE)) AS transaction_month,
+    CONVERT(CHAR(7), TRY_CAST(t_dat AS DATE), 120) AS transaction_ym
+FROM dbo.stg_transactions
+WHERE TRY_CAST(t_dat AS DATE) IS NOT NULL
+  AND customer_id IS NOT NULL
+  AND article_id IS NOT NULL;
 GO
 
 
+/*==============================================================
+  dim_customers
+  每個 customer_id 只保留一筆
+==============================================================*/
+TRUNCATE TABLE dbo.dim_customers;
+
+WITH customer_dedup AS (
+    SELECT
+        customer_id,
+        FN,
+        Active,
+        club_member_status,
+        fashion_news_frequency,
+        age,
+        postal_code,
+        ROW_NUMBER() OVER (
+            PARTITION BY customer_id
+            ORDER BY customer_id
+        ) AS rn
+    FROM dbo.stg_customers
+    WHERE customer_id IS NOT NULL
+)
+INSERT INTO dbo.dim_customers (
+    customer_id,
+    FN,
+    Active,
+    club_member_status,
+    fashion_news_frequency,
+    age,
+    postal_code
+)
+SELECT
+    customer_id,
+    TRY_CAST(NULLIF(FN, '') AS INT) AS FN,
+    TRY_CAST(NULLIF(Active, '') AS INT) AS Active,
+    NULLIF(club_member_status, '') AS club_member_status,
+    NULLIF(fashion_news_frequency, '') AS fashion_news_frequency,
+    TRY_CAST(NULLIF(age, '') AS INT) AS age,
+    NULLIF(postal_code, '') AS postal_code
+FROM customer_dedup
+WHERE rn = 1;
+GO
 /*====================================================
 4) INDEXES
 ====================================================*/
