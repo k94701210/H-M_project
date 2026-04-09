@@ -72,8 +72,7 @@ dim_customers 不做年齡分層
 
 IF OBJECT_ID('dbo.dim_articles', 'U') IS NOT NULL DROP TABLE dbo.dim_articles;
 CREATE TABLE dbo.dim_articles (
-    article_sk                      INT IDENTITY(1,1) PRIMARY KEY,
-    article_id                      VARCHAR(20) NOT NULL,
+    article_id                      VARCHAR(20) NOT NULL PRIMARY KEY,
     product_code                    VARCHAR(20),
     prod_name                       NVARCHAR(255),
     product_type_no                 INT NULL,
@@ -103,8 +102,7 @@ GO
 
 IF OBJECT_ID('dbo.dim_customers', 'U') IS NOT NULL DROP TABLE dbo.dim_customers;
 CREATE TABLE dbo.dim_customers (
-    customer_sk               INT IDENTITY(1,1) PRIMARY KEY,
-    customer_id               VARCHAR(100) NOT NULL,
+    customer_id               VARCHAR(100) NOT NULL PRIMARY KEY,
     FN                        VARCHAR(20),
     Active                    VARCHAR(20),
     club_member_status        NVARCHAR(100),
@@ -116,7 +114,6 @@ GO
 
 IF OBJECT_ID('dbo.fact_transactions', 'U') IS NOT NULL DROP TABLE dbo.fact_transactions;
 CREATE TABLE dbo.fact_transactions (
-    transaction_sk        BIGINT IDENTITY(1,1) PRIMARY KEY,
     transaction_date      DATE NOT NULL,
     customer_id           VARCHAR(100) NOT NULL,
     article_id            VARCHAR(20) NOT NULL,
@@ -126,7 +123,6 @@ CREATE TABLE dbo.fact_transactions (
     transaction_year      INT,
     transaction_month     INT,
     transaction_ym        CHAR(7),
-    load_time             DATETIME2 DEFAULT SYSDATETIME()
 );
 GO
 
@@ -265,6 +261,9 @@ WHERE TRY_CAST(t_dat AS DATE) IS NOT NULL
   AND article_id IS NOT NULL;
 GO
 
+ALTER TABLE fact_transactions
+    DROP COLUMN transaction_sk,load_time, row_num_in_batch, batch_id;
+GO
 
 /*==============================================================
   dim_customers
