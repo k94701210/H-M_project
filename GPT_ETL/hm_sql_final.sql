@@ -67,7 +67,6 @@ GO
 
 /*====================================================
 2) DIM / FACT TABLES
-dim_customers 不做年齡分層
 ====================================================*/
 
 IF OBJECT_ID('dbo.dim_articles', 'U') IS NOT NULL DROP TABLE dbo.dim_articles;

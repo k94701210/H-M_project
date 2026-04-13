@@ -26,7 +26,7 @@ CONN_STR = (
     "Trusted_Connection=yes;"
 )
 
-CHUNK_SIZE = 200000  # 可先 100000，再慢慢調大
+CHUNK_SIZE = 200000 
 
 
 # =========================
