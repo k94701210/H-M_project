@@ -7,7 +7,7 @@ GO
 下面是完整建議版
 ====================================================*/
 
-IIF OBJECT_ID('dbo.stg_articles', 'U') IS NOT NULL DROP TABLE dbo.stg_articles;
+IF OBJECT_ID('dbo.stg_articles', 'U') IS NOT NULL DROP TABLE dbo.stg_articles;
 CREATE TABLE dbo.stg_articles (
     article_id                      VARCHAR(20),
     product_code                    VARCHAR(20),
@@ -38,14 +38,17 @@ CREATE TABLE dbo.stg_articles (
 );
 GO
 
-IF OBJECT_ID('dbo.stg_customers', 'U') IS NOT NULL DROP TABLE dbo.stg_customers;
+IF OBJECT_ID('dbo.stg_customers', 'U') IS NOT NULL
+    DROP TABLE dbo.stg_customers;
+GO
+
 CREATE TABLE dbo.stg_customers (
     customer_id              VARCHAR(100),
     FN                       VARCHAR(20),
     Active                   VARCHAR(20),
     club_member_status       NVARCHAR(100),
     fashion_news_frequency   NVARCHAR(100),
-    age                      INT,
+    age                      VARCHAR(20),
     postal_code              VARCHAR(100),
     load_time                DATETIME2 DEFAULT SYSDATETIME()
 );
@@ -100,13 +103,17 @@ CREATE TABLE dbo.dim_articles (
 GO
 
 IF OBJECT_ID('dbo.dim_customers', 'U') IS NOT NULL DROP TABLE dbo.dim_customers;
+IF OBJECT_ID('dbo.dim_customers', 'U') IS NOT NULL
+    DROP TABLE dbo.dim_customers;
+GO
+
 CREATE TABLE dbo.dim_customers (
     customer_id               VARCHAR(100) NOT NULL PRIMARY KEY,
-    FN                        VARCHAR(20),
-    Active                    VARCHAR(20),
+    FN                        INT NULL,
+    Active                    INT NULL,
     club_member_status        NVARCHAR(100),
     fashion_news_frequency    NVARCHAR(100),
-    age                       INT,
+    age                       INT NULL,
     postal_code               VARCHAR(100)
 );
 GO
@@ -269,6 +276,7 @@ GO
   每個 customer_id 只保留一筆
 ==============================================================*/
 TRUNCATE TABLE dbo.dim_customers;
+GO
 
 WITH customer_dedup AS (
     SELECT
@@ -296,13 +304,48 @@ INSERT INTO dbo.dim_customers (
     postal_code
 )
 SELECT
-    customer_id,
-    TRY_CAST(NULLIF(FN, '') AS INT) AS FN,
-    TRY_CAST(NULLIF(Active, '') AS INT) AS Active,
-    NULLIF(club_member_status, '') AS club_member_status,
-    NULLIF(fashion_news_frequency, '') AS fashion_news_frequency,
-    TRY_CAST(NULLIF(age, '') AS INT) AS age,
-    NULLIF(postal_code, '') AS postal_code
+    LTRIM(RTRIM(customer_id)) AS customer_id,
+
+    CASE
+        WHEN LTRIM(RTRIM(FN)) IN ('', 'nan', 'None', '<NA>') THEN NULL
+        ELSE TRY_CAST(
+            TRY_CAST(LTRIM(RTRIM(FN)) AS DECIMAL(10,2))
+            AS INT
+        )
+    END AS FN,
+
+    CASE
+        WHEN LTRIM(RTRIM(Active)) IN ('', 'nan', 'None', '<NA>') THEN NULL
+        ELSE TRY_CAST(
+            TRY_CAST(LTRIM(RTRIM(Active)) AS DECIMAL(10,2))
+            AS INT
+        )
+    END AS Active,
+
+    CASE
+        WHEN LTRIM(RTRIM(club_member_status)) IN ('', 'nan', 'None', '<NA>') THEN NULL
+        ELSE LTRIM(RTRIM(club_member_status))
+    END AS club_member_status,
+
+    CASE
+        WHEN LTRIM(RTRIM(fashion_news_frequency)) IN ('', 'nan', 'None', '<NA>') THEN NULL
+        ELSE LTRIM(RTRIM(fashion_news_frequency))
+    END AS fashion_news_frequency,
+
+    CASE
+        WHEN age IS NULL THEN NULL
+        WHEN LTRIM(RTRIM(age)) IN ('', 'nan', 'None', '<NA>') THEN NULL
+        ELSE TRY_CAST(
+            TRY_CAST(LTRIM(RTRIM(age)) AS DECIMAL(10,2))
+            AS INT
+        )
+    END AS age,
+
+    CASE
+        WHEN LTRIM(RTRIM(postal_code)) IN ('', 'nan', 'None', '<NA>') THEN NULL
+        ELSE LTRIM(RTRIM(postal_code))
+    END AS postal_code
+
 FROM customer_dedup
 WHERE rn = 1;
 GO
