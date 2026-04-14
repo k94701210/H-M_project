@@ -7,7 +7,7 @@ GO
 下面是完整建議版
 ====================================================*/
 
-IF OBJECT_ID('dbo.stg_articles', 'U') IS NOT NULL DROP TABLE dbo.stg_articles;
+IIF OBJECT_ID('dbo.stg_articles', 'U') IS NOT NULL DROP TABLE dbo.stg_articles;
 CREATE TABLE dbo.stg_articles (
     article_id                      VARCHAR(20),
     product_code                    VARCHAR(20),
@@ -38,17 +38,14 @@ CREATE TABLE dbo.stg_articles (
 );
 GO
 
-IF OBJECT_ID('dbo.stg_customers', 'U') IS NOT NULL
-    DROP TABLE dbo.stg_customers;
-GO
-
+IF OBJECT_ID('dbo.stg_customers', 'U') IS NOT NULL DROP TABLE dbo.stg_customers;
 CREATE TABLE dbo.stg_customers (
     customer_id              VARCHAR(100),
     FN                       VARCHAR(20),
     Active                   VARCHAR(20),
     club_member_status       NVARCHAR(100),
     fashion_news_frequency   NVARCHAR(100),
-    age                      VARCHAR(20),
+    age                      INT,
     postal_code              VARCHAR(100),
     load_time                DATETIME2 DEFAULT SYSDATETIME()
 );
@@ -103,17 +100,13 @@ CREATE TABLE dbo.dim_articles (
 GO
 
 IF OBJECT_ID('dbo.dim_customers', 'U') IS NOT NULL DROP TABLE dbo.dim_customers;
-IF OBJECT_ID('dbo.dim_customers', 'U') IS NOT NULL
-    DROP TABLE dbo.dim_customers;
-GO
-
 CREATE TABLE dbo.dim_customers (
     customer_id               VARCHAR(100) NOT NULL PRIMARY KEY,
-    FN                        INT NULL,
-    Active                    INT NULL,
+    FN                        VARCHAR(20),
+    Active                    VARCHAR(20),
     club_member_status        NVARCHAR(100),
     fashion_news_frequency    NVARCHAR(100),
-    age                       INT NULL,
+    age                       INT,
     postal_code               VARCHAR(100)
 );
 GO
@@ -239,7 +232,31 @@ GO
   fact_transactions
 ==============================================================*/
 TRUNCATE TABLE dbo.fact_transactions;
+GO
 
+WITH base AS (
+    SELECT
+        TRY_CAST(t_dat AS DATE) AS txn_date,
+        customer_id,
+        article_id,
+        price,
+        sales_channel_id
+    FROM dbo.stg_transactions
+    WHERE t_dat IS NOT NULL
+),
+date_boundaries AS (
+    SELECT
+        MIN(txn_date) AS min_date,
+        MAX(txn_date) AS max_date
+    FROM base
+    WHERE txn_date IS NOT NULL
+),
+full_month_range AS (
+    SELECT
+        DATEADD(MONTH, 1, DATEFROMPARTS(YEAR(min_date), MONTH(min_date), 1)) AS keep_start_date,
+        EOMONTH(DATEADD(MONTH, -1, max_date)) AS keep_end_date
+    FROM date_boundaries
+)
 INSERT INTO dbo.fact_transactions (
     transaction_date,
     customer_id,
@@ -252,19 +269,21 @@ INSERT INTO dbo.fact_transactions (
     transaction_ym
 )
 SELECT
-    TRY_CAST(t_dat AS DATE) AS transaction_date,
-    customer_id,
-    article_id,
-    TRY_CAST(price AS DECIMAL(18,6)) AS price,
-    TRY_CAST(price AS DECIMAL(18,6)) * 1000.0 AS price_amount,
-    TRY_CAST(NULLIF(sales_channel_id, '') AS INT) AS sales_channel_id,
-    YEAR(TRY_CAST(t_dat AS DATE)) AS transaction_year,
-    MONTH(TRY_CAST(t_dat AS DATE)) AS transaction_month,
-    CONVERT(CHAR(7), TRY_CAST(t_dat AS DATE), 120) AS transaction_ym
-FROM dbo.stg_transactions
-WHERE TRY_CAST(t_dat AS DATE) IS NOT NULL
-  AND customer_id IS NOT NULL
-  AND article_id IS NOT NULL;
+    b.txn_date,
+    b.customer_id,
+    b.article_id,
+    TRY_CAST(b.price AS DECIMAL(18,6)) AS price,
+    TRY_CAST(b.price AS DECIMAL(18,6)) * 1000.0 AS price_amount,
+    TRY_CAST(NULLIF(b.sales_channel_id, '') AS INT),
+    YEAR(b.txn_date),
+    MONTH(b.txn_date),
+    CONVERT(CHAR(7), b.txn_date, 120)
+FROM base b
+CROSS JOIN full_month_range r
+WHERE b.txn_date IS NOT NULL
+  AND b.customer_id IS NOT NULL
+  AND b.article_id IS NOT NULL
+  AND b.txn_date BETWEEN r.keep_start_date AND r.keep_end_date;
 GO
 
 ALTER TABLE fact_transactions
@@ -276,7 +295,6 @@ GO
   每個 customer_id 只保留一筆
 ==============================================================*/
 TRUNCATE TABLE dbo.dim_customers;
-GO
 
 WITH customer_dedup AS (
     SELECT
@@ -304,48 +322,13 @@ INSERT INTO dbo.dim_customers (
     postal_code
 )
 SELECT
-    LTRIM(RTRIM(customer_id)) AS customer_id,
-
-    CASE
-        WHEN LTRIM(RTRIM(FN)) IN ('', 'nan', 'None', '<NA>') THEN NULL
-        ELSE TRY_CAST(
-            TRY_CAST(LTRIM(RTRIM(FN)) AS DECIMAL(10,2))
-            AS INT
-        )
-    END AS FN,
-
-    CASE
-        WHEN LTRIM(RTRIM(Active)) IN ('', 'nan', 'None', '<NA>') THEN NULL
-        ELSE TRY_CAST(
-            TRY_CAST(LTRIM(RTRIM(Active)) AS DECIMAL(10,2))
-            AS INT
-        )
-    END AS Active,
-
-    CASE
-        WHEN LTRIM(RTRIM(club_member_status)) IN ('', 'nan', 'None', '<NA>') THEN NULL
-        ELSE LTRIM(RTRIM(club_member_status))
-    END AS club_member_status,
-
-    CASE
-        WHEN LTRIM(RTRIM(fashion_news_frequency)) IN ('', 'nan', 'None', '<NA>') THEN NULL
-        ELSE LTRIM(RTRIM(fashion_news_frequency))
-    END AS fashion_news_frequency,
-
-    CASE
-        WHEN age IS NULL THEN NULL
-        WHEN LTRIM(RTRIM(age)) IN ('', 'nan', 'None', '<NA>') THEN NULL
-        ELSE TRY_CAST(
-            TRY_CAST(LTRIM(RTRIM(age)) AS DECIMAL(10,2))
-            AS INT
-        )
-    END AS age,
-
-    CASE
-        WHEN LTRIM(RTRIM(postal_code)) IN ('', 'nan', 'None', '<NA>') THEN NULL
-        ELSE LTRIM(RTRIM(postal_code))
-    END AS postal_code
-
+    customer_id,
+    TRY_CAST(NULLIF(FN, '') AS INT) AS FN,
+    TRY_CAST(NULLIF(Active, '') AS INT) AS Active,
+    NULLIF(club_member_status, '') AS club_member_status,
+    NULLIF(fashion_news_frequency, '') AS fashion_news_frequency,
+    TRY_CAST(NULLIF(age, '') AS INT) AS age,
+    NULLIF(postal_code, '') AS postal_code
 FROM customer_dedup
 WHERE rn = 1;
 GO
